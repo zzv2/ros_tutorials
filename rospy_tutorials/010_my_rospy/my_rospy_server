@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+from collections import namedtuple
+
+from std_msgs.msg import (
+    Int8,
+    String,
+)
+import rospy
+
+MyRospyServerParams = namedtuple('MyRospyServerParams', [
+    'sequence',
+])
+
+MyRospyServerPubs = namedtuple('MyRospyServerPubs', [
+    'test_string',
+])
+
+
+class MyRospyServer(object):
+    """Docstring for MyRospyServer."""
+
+    def __init__(self, params, pubs):
+        """Docstring for __init__.
+
+        Args:
+            params (TYPE): Description.
+            pubs (TYPE): Description.
+        """
+        self.__params = params
+        self.__pubs = pubs
+        self.__history = []
+
+    def int_callback(self, int8_msg):
+        """Docstring for int_callback.
+
+        Args:
+            int8_msg (TYPE): Description.
+        """
+        rospy.loginfo(('int8_msg', int8_msg))
+        self.__history.append(int8_msg.data)
+        if len(self.__history) > len(self.__params.sequence):
+            self.__history.pop(0)
+        rospy.loginfo(('self.__history', self.__history))
+        rospy.loginfo(('self.__params.sequence', self.__params.sequence))
+        if self.__history == self.__params.sequence:
+            string_msg = String(data='Found sequence.')
+            self.__pubs.test_string.publish(string_msg)
+            rospy.loginfo(string_msg.data)
+
+
+class MyRospyServerNode(object):
+    """Docstring for MyRospyServerNode."""
+
+    def __init__(self):
+        """Docstring for __init__."""
+        rospy.init_node('my_rospy')
+        params = MyRospyServerParams(
+            sequence=rospy.get_param('~sequence'),
+        )
+        rospy.loginfo(('params', params))
+
+        output_topic = rospy.get_param('~output_topic')
+        rospy.loginfo(('output_topic', output_topic))
+        pubs = MyRospyServerPubs(
+            test_string=rospy.Publisher(
+                output_topic, String, queue_size=1),
+        )
+
+        self.__my_rospy = MyRospyServer(params, pubs)
+
+        input_topic = rospy.get_param('~input_topic')
+        rospy.loginfo(('input_topic', input_topic))
+        rospy.Subscriber(input_topic, Int8,
+                         self.__my_rospy.int_callback, queue_size=1)
+
+
+if __name__ == "__main__":
+    MyRospyServerNode()
+    rospy.spin()
